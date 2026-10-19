@@ -1,3 +1,10 @@
 spring:
   application:
     name: shortener-service
+  datasource:
+    url: jdbc:postgresql://localhost:5433/shortener
+    username: linkpulse
+    password: linkpulse
+  jpa:
+    hibernate:
+      ddl-auto: validate
