@@ -47,4 +47,5 @@ public class Link {
     public LocalDateTime getExpiresAt() { return expiresAt; }
     public boolean isActive() { return active; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public void assignCode(String code) { this.code = code; }
 }
