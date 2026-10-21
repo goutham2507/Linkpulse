@@ -1,11 +1,12 @@
 // LinkController.java
-package com.linkpulse.shortener_service.link;
-
+package com.linkpulse.shortener_service.controller;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import com.linkpulse.shortener_service.dto.CreateLinkRequest;
+import com.linkpulse.shortener_service.dto.CreateLinkResponse;
+import com.linkpulse.shortener_service.service.LinkService;
 @RestController
 @RequestMapping("/v1/links")
 public class LinkController {

@@ -1,5 +1,5 @@
-package com.linkpulse.shortener_service.link;
-
+package com.linkpulse.shortener_service.repository;
+import com.linkpulse.shortener_service.entity.*;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 

@@ -1,12 +1,11 @@
-package com.linkpulse.shortener_service.link;
-
+package com.linkpulse.shortener_service.repository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
-
 import static org.junit.jupiter.api.Assertions.*;
+import com.linkpulse.shortener_service.entity.Link;
 
 @SpringBootTest
 @Transactional                      // rolls back after the test, so no leftover rows

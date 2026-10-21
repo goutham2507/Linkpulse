@@ -1,5 +1,5 @@
 // LinkService.java
-package com.linkpulse.shortener_service.link;
+package com.linkpulse.shortener_service.service;
 
 import com.linkpulse.shortener_service.util.Base62;
 import org.springframework.beans.factory.annotation.Value;
@@ -7,11 +7,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.UUID;
-
+import com.linkpulse.shortener_service.repository.*;
+import com.linkpulse.shortener_service.dto.*;
+import com.linkpulse.shortener_service.entity.*;
 @Service
 public class LinkService {
 
@@ -52,5 +53,12 @@ public class LinkService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "URL must be a valid http or https address");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public String resolve(String code) {
+    return linkRepository.findByCode(code)
+            .map(Link::getLongUrl)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Link not found"));
     }
 }

@@ -1,5 +1,5 @@
 // CreateLinkRequest.java
-package com.linkpulse.shortener_service.link;
+package com.linkpulse.shortener_service.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
