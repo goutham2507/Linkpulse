@@ -1,7 +1,7 @@
 package com.linkpulse.shortener_service.exception;
 
 import java.time.LocalDateTime;
-
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -49,5 +49,24 @@ public class GlobalExceptionHandler {
                 message,
                 req.getRequestURI());
         return ResponseEntity.status(status).body(body);
+    }
+    @ExceptionHandler(AliasAlreadyTakenException.class)
+    public ResponseEntity<ErrorResponse> handleAliasTaken(AliasAlreadyTakenException ex,
+                                                        HttpServletRequest req) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), req);
+    }
+
+    // Safety net: two people claim the same alias at the same instant.
+    // The DB UNIQUE constraint rejects the second one.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicate(DataIntegrityViolationException ex,
+                                                        HttpServletRequest req) {
+        return build(HttpStatus.CONFLICT, "Alias is already taken", req);
+    }
+
+    @ExceptionHandler(LinkExpiredException.class)
+    public ResponseEntity<ErrorResponse> handleExpired(LinkExpiredException ex,
+                                                    HttpServletRequest req) {
+        return build(HttpStatus.GONE, ex.getMessage(), req);
     }
 }

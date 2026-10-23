@@ -48,4 +48,6 @@ public class Link {
     public boolean isActive() { return active; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void assignCode(String code) { this.code = code; }
+    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
+    
 }
