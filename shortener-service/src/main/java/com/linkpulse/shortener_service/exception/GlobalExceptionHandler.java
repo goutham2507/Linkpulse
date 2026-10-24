@@ -56,12 +56,18 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, ex.getMessage(), req);
     }
 
-    // Safety net: two people claim the same alias at the same instant.
+    @ExceptionHandler(EmailAlreadyRegisteredException.class)
+    public ResponseEntity<ErrorResponse> handleEmailTaken(EmailAlreadyRegisteredException ex,
+                                                        HttpServletRequest req) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), req);
+    }
+
+    // Safety net: two requests claim the same alias/email at the same instant.
     // The DB UNIQUE constraint rejects the second one.
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDuplicate(DataIntegrityViolationException ex,
                                                         HttpServletRequest req) {
-        return build(HttpStatus.CONFLICT, "Alias is already taken", req);
+        return build(HttpStatus.CONFLICT, "A record with this value already exists", req);
     }
 
     @ExceptionHandler(LinkExpiredException.class)
