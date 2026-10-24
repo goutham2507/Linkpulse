@@ -1,0 +1,185 @@
+{
+  "info": {
+    "_postman_id": "9fcbe548-e256-4cf3-9e2c-6a0874f9ded3",
+    "name": "Linkpulse",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "46022797",
+    "_collection_link": "https://go.postman.co/collection/46022797-9fcbe548-e256-4cf3-9e2c-6a0874f9ded3?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Create link",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"url\": \"https://example.com\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/links",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "links"
+          ]
+        },
+        "description": "Generated from cURL: curl -X POST {{baseUrl}}/v1/links -H \"Content-Type: application/json\" -d '{\"url\": \"https://example.com\"}'"
+      },
+      "response": []
+    },
+    {
+      "name": "Create with alias",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"url\": \"https://example.com\", \"alias\": \"my-alias\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/links",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "links"
+          ]
+        },
+        "description": "Generated from cURL: curl -X POST {{baseUrl}}/v1/links -H \"Content-Type: application/json\" -d '{\"url\": \"https://example.com\", \"alias\": \"my-alias\"}'"
+      },
+      "response": []
+    },
+    {
+      "name": "Create with expiry",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"url\": \"https://example.com\", \"expiresAt\": \"2099-12-31T23:59:59Z\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/links",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "links"
+          ]
+        },
+        "description": "Generated from cURL: curl -X POST {{baseUrl}}/v1/links -H \"Content-Type: application/json\" -d '{\"url\": \"https://example.com\", \"expiresAt\": \"2099-12-31T23:59:59Z\"}'"
+      },
+      "response": []
+    },
+    {
+      "name": "Redirect",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/my-alias",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "my-alias"
+          ]
+        },
+        "description": "Generated from cURL: curl -X GET {{baseUrl}}/my-alias"
+      },
+      "response": []
+    },
+    {
+      "name": "Unknown code",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/doesnotexist",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "doesnotexist"
+          ]
+        },
+        "description": "Generated from cURL: curl -X GET {{baseUrl}}/doesnotexist"
+      },
+      "response": []
+    },
+    {
+      "name": "Duplicate alias",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"url\": \"https://example.com\", \"alias\": \"my-alias\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/links",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "links"
+          ]
+        },
+        "description": "Generated from cURL: curl -X POST {{baseUrl}}/v1/links -H \"Content-Type: application/json\" -d '{\"url\": \"https://example.com\", \"alias\": \"my-alias\"}'"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    }
+  ]
+}
