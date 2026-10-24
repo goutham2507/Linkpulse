@@ -1,0 +1,19 @@
+{
+  "properties": [
+    {
+      "name": "app.base-url",
+      "type": "java.lang.String",
+      "description": "Public base URL used to build short links."
+    },
+    {
+      "name": "app.jwt.secret",
+      "type": "java.lang.String",
+      "description": "HMAC secret used to sign JWTs (at least 32 bytes). Override with the JWT_SECRET env var."
+    },
+    {
+      "name": "app.jwt.expiration-minutes",
+      "type": "java.lang.Long",
+      "description": "JWT lifetime in minutes."
+    }
+  ]
+}

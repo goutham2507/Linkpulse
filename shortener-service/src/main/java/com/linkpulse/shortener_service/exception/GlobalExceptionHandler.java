@@ -7,7 +7,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
@@ -74,5 +73,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleExpired(LinkExpiredException ex,
                                                     HttpServletRequest req) {
         return build(HttpStatus.GONE, ex.getMessage(), req);
+    }
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadLogin(InvalidCredentialsException ex,
+                                                        HttpServletRequest req) {
+        return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), req);
     }
 }

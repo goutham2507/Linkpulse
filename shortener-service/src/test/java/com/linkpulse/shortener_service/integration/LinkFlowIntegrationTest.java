@@ -7,9 +7,11 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,6 +42,30 @@ class LinkFlowIntegrationTest {
     private final HttpClient client = HttpClient.newBuilder()
             .followRedirects(HttpClient.Redirect.NEVER)
             .build();
+
+    private String token;
+
+    @BeforeEach
+    void registerAndLogin() throws Exception {
+        String email = "it-" + UUID.randomUUID() + "@example.com";
+        String creds = "{\"email\":\"" + email + "\",\"password\":\"password123\"}";
+
+        assertEquals(201, postJson("/auth/register", creds, null).statusCode());
+
+        HttpResponse<String> login = postJson("/auth/login", creds, null);
+        assertEquals(200, login.statusCode());
+        Matcher m = Pattern.compile("\"accessToken\"\\s*:\\s*\"([^\"]+)\"").matcher(login.body());
+        assertTrue(m.find(), "no accessToken in response: " + login.body());
+        token = m.group(1);
+    }
+
+    @Test
+    void createWithoutToken_returns401() throws Exception {
+        HttpResponse<String> res = postJson("/v1/links", "{\"longUrl\":\"" + LONG_URL + "\"}", null);
+
+        assertEquals(401, res.statusCode());
+        assertTrue(res.body().contains("UNAUTHORIZED"));
+    }
 
     @Test
     void createThenRedirect_returns302WithLocation() throws Exception {
@@ -83,11 +109,17 @@ class LinkFlowIntegrationTest {
     // ---------- helpers ----------
 
     private HttpResponse<String> post(String json) throws Exception {
-        HttpRequest req = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/v1/links"))
+        return postJson("/v1/links", json, token);
+    }
+
+    private HttpResponse<String> postJson(String path, String json, String bearer) throws Exception {
+        HttpRequest.Builder req = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(json))
-                .build();
-        return client.send(req, HttpResponse.BodyHandlers.ofString());
+                .POST(HttpRequest.BodyPublishers.ofString(json));
+        if (bearer != null) {
+            req.header("Authorization", "Bearer " + bearer);
+        }
+        return client.send(req.build(), HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> get(String path) throws Exception {

@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.*;
 import com.linkpulse.shortener_service.dto.RegisterRequest;
 import com.linkpulse.shortener_service.dto.RegisterResponse;
 import com.linkpulse.shortener_service.service.AuthService;
+import com.linkpulse.shortener_service.dto.LoginRequest;
+import com.linkpulse.shortener_service.dto.LoginResponse;
 
 @RestController
 @RequestMapping("/auth")
@@ -21,5 +23,9 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+    }
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(authService.login(request));
     }
 }
