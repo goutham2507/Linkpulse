@@ -18,11 +18,18 @@ import com.linkpulse.shortener_service.exception.LinkExpiredException;
 import com.linkpulse.shortener_service.exception.LinkNotFoundException;
 import com.linkpulse.shortener_service.repository.LinkRepository;
 import com.linkpulse.shortener_service.util.Base62;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
+import com.linkpulse.shortener_service.dto.LinkSummary;
+import com.linkpulse.shortener_service.dto.PageResponse;
+import com.linkpulse.shortener_service.exception.LinkAccessDeniedException;
 @Service
 public class LinkService {
 
-    private static final long TEMP_USER_ID = 1L;   // replaced by logged-in user in Phase 3
+   // private static final long TEMP_USER_ID = 1L;   // replaced by logged-in user in Phase 3
 
     private final LinkRepository linkRepository;
     private final String baseUrl;
@@ -34,7 +41,7 @@ public class LinkService {
     }
 
     @Transactional
-    public CreateLinkResponse create(CreateLinkRequest request) {
+    public CreateLinkResponse create(CreateLinkRequest request, Long userId) {
         validate(request.longUrl());
 
         String alias = request.alias();
@@ -46,7 +53,7 @@ public class LinkService {
                 ? alias
                 : UUID.randomUUID().toString().replace("-", "").substring(0, 20);
 
-        Link link = new Link(initialCode, request.longUrl(), TEMP_USER_ID);
+        Link link = new Link(initialCode, request.longUrl(), userId);
         link.setExpiresAt(request.expiresAt());
         link = linkRepository.save(link);
 
@@ -80,5 +87,38 @@ public class LinkService {
         } catch (URISyntaxException e) {
             throw new InvalidUrlException("URL must be a valid http or https address");
         }
+    }
+    @Transactional(readOnly = true)
+    public PageResponse<LinkSummary> listMine(Long userId, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 50);          // 1..50, protects the DB
+
+        Pageable pageable = PageRequest.of(safePage, safeSize,
+                Sort.by(Sort.Direction.DESC, "createdAt"));      // newest first
+
+        Page<LinkSummary> result = linkRepository.findByUserId(userId, pageable)
+                .map(this::toSummary);
+
+        return PageResponse.from(result);
+    }
+
+    private LinkSummary toSummary(Link link) {
+        return new LinkSummary(
+                link.getCode(),
+                baseUrl + "/" + link.getCode(),
+                link.getLongUrl(),
+                link.getCreatedAt(),
+                link.getExpiresAt(),
+                link.isActive());       // use your getter name for the 'active' field
+    }
+    @Transactional
+    public void delete(String code, Long userId) {
+        Link link = linkRepository.findByCode(code)
+                .orElseThrow(() -> new LinkNotFoundException(code));       // 404
+
+        if (!link.getUserId().equals(userId)) {
+            throw new LinkAccessDeniedException(code);                     // 403
+        }
+        linkRepository.delete(link);
     }
 }

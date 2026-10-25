@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
@@ -31,6 +32,12 @@ public class GlobalExceptionHandler {
                 ? ex.getBindingResult().getFieldError().getDefaultMessage()
                 : "Invalid request";
         return build(HttpStatus.BAD_REQUEST, msg, req);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+                                                            HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "Invalid value for parameter '" + ex.getName() + "'", req);
     }
 
     @ExceptionHandler(Exception.class)
@@ -78,5 +85,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBadLogin(InvalidCredentialsException ex,
                                                         HttpServletRequest req) {
         return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), req);
+    }
+    @ExceptionHandler(LinkAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(LinkAccessDeniedException ex,
+                                                        HttpServletRequest req) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage(), req);
     }
 }

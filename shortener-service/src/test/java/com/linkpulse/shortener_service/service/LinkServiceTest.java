@@ -22,6 +22,7 @@ import com.linkpulse.shortener_service.dto.CreateLinkResponse;
 import com.linkpulse.shortener_service.entity.Link;
 import com.linkpulse.shortener_service.exception.AliasAlreadyTakenException;
 import com.linkpulse.shortener_service.exception.InvalidUrlException;
+import com.linkpulse.shortener_service.exception.LinkAccessDeniedException;
 import com.linkpulse.shortener_service.exception.LinkExpiredException;
 import com.linkpulse.shortener_service.exception.LinkNotFoundException;
 import com.linkpulse.shortener_service.repository.LinkRepository;
@@ -53,7 +54,7 @@ class LinkServiceTest {
             return link;
         });
 
-        CreateLinkResponse res = linkService.create(new CreateLinkRequest(LONG_URL, null, null));
+        CreateLinkResponse res = linkService.create(new CreateLinkRequest(LONG_URL, null, null), 1L);
 
         assertEquals("g8", res.code());                       // Base62(1000)
         assertEquals(BASE_URL + "/g8", res.shortUrl());
@@ -65,7 +66,7 @@ class LinkServiceTest {
         when(linkRepository.existsByCode("myshoes")).thenReturn(false);
         when(linkRepository.save(any(Link.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        CreateLinkResponse res = linkService.create(new CreateLinkRequest(LONG_URL, "myshoes", null));
+        CreateLinkResponse res = linkService.create(new CreateLinkRequest(LONG_URL, "myshoes", null), 1L);
 
         assertEquals("myshoes", res.code());
         assertEquals(BASE_URL + "/myshoes", res.shortUrl());
@@ -76,7 +77,7 @@ class LinkServiceTest {
         when(linkRepository.existsByCode("myshoes")).thenReturn(true);
 
         assertThrows(AliasAlreadyTakenException.class,
-                () -> linkService.create(new CreateLinkRequest(LONG_URL, "myshoes", null)));
+                () -> linkService.create(new CreateLinkRequest(LONG_URL, "myshoes", null), 1L));
 
         verify(linkRepository, never()).save(any());
     }
@@ -84,7 +85,7 @@ class LinkServiceTest {
     @Test
     void create_withNonHttpUrl_throwsInvalidUrl() {
         assertThrows(InvalidUrlException.class,
-                () -> linkService.create(new CreateLinkRequest("ftp://example.com/file", null, null)));
+                () -> linkService.create(new CreateLinkRequest("ftp://example.com/file", null, null), 1L));
 
         verify(linkRepository, never()).save(any());
     }
@@ -122,5 +123,30 @@ class LinkServiceTest {
         when(linkRepository.findByCode("forever")).thenReturn(Optional.of(link));
 
         assertEquals(LONG_URL, linkService.resolve("forever"));
+    }
+    @Test
+    void delete_byOwner_deletesLink() {
+        Link link = new Link("mine", LONG_URL, 1L);
+        when(linkRepository.findByCode("mine")).thenReturn(Optional.of(link));
+
+        linkService.delete("mine", 1L);
+
+        verify(linkRepository).delete(link);
+    }
+
+    @Test
+    void delete_byOtherUser_throwsForbidden() {
+        Link link = new Link("mine", LONG_URL, 1L);
+        when(linkRepository.findByCode("mine")).thenReturn(Optional.of(link));
+
+        assertThrows(LinkAccessDeniedException.class, () -> linkService.delete("mine", 2L));
+        verify(linkRepository, never()).delete(any());
+    }
+
+    @Test
+    void delete_unknownCode_throwsNotFound() {
+        when(linkRepository.findByCode("nope")).thenReturn(Optional.empty());
+
+        assertThrows(LinkNotFoundException.class, () -> linkService.delete("nope", 1L));
     }
 }
