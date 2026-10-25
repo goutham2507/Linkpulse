@@ -1,6 +1,7 @@
 package com.linkpulse.shortener_service.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -23,6 +24,7 @@ import com.linkpulse.shortener_service.entity.Link;
 import com.linkpulse.shortener_service.exception.AliasAlreadyTakenException;
 import com.linkpulse.shortener_service.exception.InvalidUrlException;
 import com.linkpulse.shortener_service.exception.LinkAccessDeniedException;
+import com.linkpulse.shortener_service.exception.LinkDisabledException;
 import com.linkpulse.shortener_service.exception.LinkExpiredException;
 import com.linkpulse.shortener_service.exception.LinkNotFoundException;
 import com.linkpulse.shortener_service.repository.LinkRepository;
@@ -141,6 +143,26 @@ class LinkServiceTest {
 
         assertThrows(LinkAccessDeniedException.class, () -> linkService.delete("mine", 2L));
         verify(linkRepository, never()).delete(any());
+    }
+
+    @Test
+    void resolve_disabledLink_throwsDisabled() {
+        Link link = new Link("off", LONG_URL, 1L);
+        link.disable();
+        when(linkRepository.findByCode("off")).thenReturn(Optional.of(link));
+
+        assertThrows(LinkDisabledException.class, () -> linkService.resolve("off"));
+    }
+
+    @Test
+    void adminDisable_marksLinkInactive() {
+        Link link = new Link("on", LONG_URL, 1L);
+        when(linkRepository.findByCode("on")).thenReturn(Optional.of(link));
+
+        linkService.adminDisable("on");
+
+        assertFalse(link.isActive());
+        verify(linkRepository, never()).save(any());
     }
 
     @Test

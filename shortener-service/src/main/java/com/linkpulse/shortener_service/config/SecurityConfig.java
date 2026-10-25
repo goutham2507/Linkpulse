@@ -11,6 +11,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 import com.linkpulse.shortener_service.security.JwtAuthFilter;
 import com.linkpulse.shortener_service.security.JwtService;
+import com.linkpulse.shortener_service.security.RestAccessDeniedHandler;
 import com.linkpulse.shortener_service.security.RestAuthenticationEntryPoint;
 
 @Configuration
@@ -25,8 +26,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(a -> a
                         .requestMatchers("/auth/**", "/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/{code}").permitAll()
+                        // must come before anyRequest(): the first matching rule wins
+                        // hasRole("ADMIN") checks authority "ROLE_ADMIN", which JwtAuthFilter grants
+                        .requestMatchers("/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
-                .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint))
+                .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler(new RestAccessDeniedHandler()))
                 .addFilterBefore(new JwtAuthFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

@@ -49,5 +49,7 @@ public class Link {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void assignCode(String code) { this.code = code; }
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
+    public void disable() { this.active = false; }   // soft switch: keeps the row and its history
+    public void enable() { this.active = true; }
     
 }

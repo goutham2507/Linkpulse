@@ -14,6 +14,7 @@ import com.linkpulse.shortener_service.dto.CreateLinkResponse;
 import com.linkpulse.shortener_service.entity.Link;
 import com.linkpulse.shortener_service.exception.AliasAlreadyTakenException;
 import com.linkpulse.shortener_service.exception.InvalidUrlException;
+import com.linkpulse.shortener_service.exception.LinkDisabledException;
 import com.linkpulse.shortener_service.exception.LinkExpiredException;
 import com.linkpulse.shortener_service.exception.LinkNotFoundException;
 import com.linkpulse.shortener_service.repository.LinkRepository;
@@ -69,6 +70,10 @@ public class LinkService {
         Link link = linkRepository.findByCode(code)
                 .orElseThrow(() -> new LinkNotFoundException(code));
 
+        // checked before expiry: an admin takedown applies regardless of the expiry date
+        if (!link.isActive()) {
+            throw new LinkDisabledException(code);
+        }
         if (link.getExpiresAt() != null && link.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new LinkExpiredException(code);
         }
@@ -111,6 +116,20 @@ public class LinkService {
                 link.getExpiresAt(),
                 link.isActive());       // use your getter name for the 'active' field
     }
+    @Transactional
+    public void adminDisable(String code) {
+        Link link = linkRepository.findByCode(code)
+                .orElseThrow(() -> new LinkNotFoundException(code));       // 404
+        link.disable();     // no save(): the managed entity is flushed at commit (dirty checking)
+    }
+
+    @Transactional
+    public void adminEnable(String code) {
+        Link link = linkRepository.findByCode(code)
+                .orElseThrow(() -> new LinkNotFoundException(code));       // 404
+        link.enable();      // no save(): dirty checking
+    }
+
     @Transactional
     public void delete(String code, Long userId) {
         Link link = linkRepository.findByCode(code)

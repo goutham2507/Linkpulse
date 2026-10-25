@@ -81,6 +81,12 @@ public class GlobalExceptionHandler {
                                                     HttpServletRequest req) {
         return build(HttpStatus.GONE, ex.getMessage(), req);
     }
+    // 410 (not 404): the link exists but was deliberately taken down
+    @ExceptionHandler(LinkDisabledException.class)
+    public ResponseEntity<ErrorResponse> handleDisabled(LinkDisabledException ex,
+                                                        HttpServletRequest req) {
+        return build(HttpStatus.GONE, ex.getMessage(), req);
+    }
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadLogin(InvalidCredentialsException ex,
                                                         HttpServletRequest req) {
