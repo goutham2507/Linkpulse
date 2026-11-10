@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -25,6 +26,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -39,7 +41,10 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
 @Testcontainers
-@SpringBootTest
+@SpringBootTest(properties = {
+                "app.rate-limit.create-link.limit=10", "app.rate-limit.create-link.window-seconds=3600",
+                "app.rate-limit.login.limit=10", "app.rate-limit.login.window-seconds=3600",
+                "app.rate-limit.register.limit=5", "app.rate-limit.register.window-seconds=3600"})
 @AutoConfigureMockMvc
 class SecurityIntegrationTest {
 
@@ -49,6 +54,10 @@ class SecurityIntegrationTest {
     @Container
     @ServiceConnection                       // Spring auto-points the datasource at this container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16");
+
+    @Container
+    @ServiceConnection(name = "redis")       // points spring.data.redis at this container
+    static GenericContainer<?> redis = new GenericContainer<>("redis:7").withExposedPorts(6379);
 
     @Autowired private MockMvc mvc;
     @Autowired private UserRepository userRepository;
@@ -199,5 +208,92 @@ class SecurityIntegrationTest {
         // admin does not own the link, so success proves the role check, not ownership, grants access
         mvc.perform(patch("/v1/admin/links/alice3/disable").header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
+    }
+
+    // ---------- rate limiting ----------
+
+    @Test
+    void eleventhCreateInWindow_returns429WithRetryAfter() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            mvc.perform(post("/v1/links").header("Authorization", "Bearer " + bobToken)
+                            .contentType(MediaType.APPLICATION_JSON).content(CREATE_BODY))
+                    .andExpect(status().isCreated());
+        }
+        mvc.perform(post("/v1/links").header("Authorization", "Bearer " + bobToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(CREATE_BODY))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"))
+                .andExpect(jsonPath("$.status").value(429));
+    }
+
+    @Test
+    void eleventhLoginFromSameIp_returns429() throws Exception {
+        String bad = "{\"email\":\"alice@example.com\",\"password\":\"wrong-password\"}";
+        for (int i = 0; i < 10; i++) {
+            mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(bad)
+                            .with(r -> { r.setRemoteAddr("10.9.9.9"); return r; }))   // dedicated IP so other tests' logins don't share this counter
+                    .andExpect(status().isUnauthorized());
+        }
+        mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(bad)
+                        .with(r -> { r.setRemoteAddr("10.9.9.9"); return r; }))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    // ---------- actuator ----------
+
+    @Test
+    void health_isPublic() throws Exception {
+        mvc.perform(get("/actuator/health")).andExpect(status().isOk());
+    }
+
+    @Test
+    void metrics_withUserToken_returns403() throws Exception {
+        mvc.perform(get("/actuator/metrics/linkpulse.cache.hit.ratio").header("Authorization", "Bearer " + aliceToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void metrics_withAdminToken_returns200() throws Exception {
+        mvc.perform(get("/actuator/metrics/linkpulse.cache.hit.ratio").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+    }
+
+    // ---------- cache invalidation ----------
+
+    @Test
+    void disablingACachedLink_stopsRedirectImmediately() throws Exception {
+        linkRepository.save(new Link("cache1", "https://example.com/d", alice.getId()));
+
+        mvc.perform(get("/cache1")).andExpect(status().isFound());
+        mvc.perform(get("/cache1")).andExpect(status().isFound());   // second hit is served from Redis
+
+        mvc.perform(patch("/v1/admin/links/cache1/disable").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/cache1")).andExpect(status().isGone());
+    }
+
+    @Test
+    void aliasCreatedAfterA404_redirectsImmediately() throws Exception {
+        mvc.perform(get("/later01")).andExpect(status().isNotFound());   // writes the negative marker
+
+        mvc.perform(post("/v1/links").header("Authorization", "Bearer " + aliceToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"longUrl\":\"https://example.com/later\",\"alias\":\"later01\"}"))
+                .andExpect(status().isCreated());
+
+        mvc.perform(get("/later01")).andExpect(status().isFound());   // would stay 404 for 60s without the eviction
+    }
+
+    @Test
+    void deletingACachedLink_stopsRedirectImmediately() throws Exception {
+        linkRepository.save(new Link("cache2", "https://example.com/e", alice.getId()));
+
+        mvc.perform(get("/cache2")).andExpect(status().isFound());
+
+        mvc.perform(delete("/v1/links/cache2").header("Authorization", "Bearer " + aliceToken))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/cache2")).andExpect(status().isNotFound());
     }
 }

@@ -18,12 +18,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// register limit is 100 here: 6 tests each register from 127.0.0.1 and share one Redis, so 5 would trip mid-class
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {
+                "app.rate-limit.create-link.limit=10", "app.rate-limit.create-link.window-seconds=3600",
+                "app.rate-limit.login.limit=10", "app.rate-limit.login.window-seconds=3600",
+                "app.rate-limit.register.limit=100", "app.rate-limit.register.window-seconds=3600"})
 class LinkFlowIntegrationTest {
 
     private static final String LONG_URL = "https://example.com/products/shoes/nike/air-max?color=red";
@@ -31,6 +37,10 @@ class LinkFlowIntegrationTest {
     @Container
     @ServiceConnection                       // Spring auto-points the datasource at this container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16");
+
+    @Container
+    @ServiceConnection(name = "redis")       // points spring.data.redis at this container
+    static GenericContainer<?> redis = new GenericContainer<>("redis:7").withExposedPorts(6379);
 
     @Value("${local.server.port}")
     private int port;

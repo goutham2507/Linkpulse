@@ -92,6 +92,15 @@ public class GlobalExceptionHandler {
                                                         HttpServletRequest req) {
         return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), req);
     }
+    // Retry-After tells well-behaved clients when the window resets instead of letting them hammer us
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimit(RateLimitExceededException ex,
+                                                         HttpServletRequest req) {
+        ResponseEntity<ErrorResponse> base = build(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), req);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                .body(base.getBody());
+    }
     @ExceptionHandler(LinkAccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleForbidden(LinkAccessDeniedException ex,
                                                         HttpServletRequest req) {

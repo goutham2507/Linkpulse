@@ -11,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import com.linkpulse.shortener_service.dto.LinkSummary;
 import com.linkpulse.shortener_service.dto.PageResponse;
+import com.linkpulse.shortener_service.dto.UpdateExpiryRequest;
 import com.linkpulse.shortener_service.security.AuthUser;
 @RestController
 @RequestMapping("/v1/links")
@@ -39,6 +40,14 @@ public class LinkController {
     public ResponseEntity<Void> delete(@PathVariable String code,
                                     @AuthenticationPrincipal AuthUser user) {
         linkService.delete(code, user.id());
+        return ResponseEntity.noContent().build();      // 204
+    }
+
+    @PatchMapping("/{code}/expiry")
+    public ResponseEntity<Void> updateExpiry(@PathVariable String code,
+                                            @Valid @RequestBody UpdateExpiryRequest request,
+                                            @AuthenticationPrincipal AuthUser user) {
+        linkService.updateExpiry(code, user.id(), request.expiresAt());
         return ResponseEntity.noContent().build();      // 204
     }
 }

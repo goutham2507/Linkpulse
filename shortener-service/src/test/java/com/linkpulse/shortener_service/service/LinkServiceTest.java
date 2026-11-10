@@ -4,10 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -18,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.linkpulse.shortener_service.cache.LinkCache;
 import com.linkpulse.shortener_service.dto.CreateLinkRequest;
 import com.linkpulse.shortener_service.dto.CreateLinkResponse;
 import com.linkpulse.shortener_service.entity.Link;
@@ -27,6 +33,9 @@ import com.linkpulse.shortener_service.exception.LinkAccessDeniedException;
 import com.linkpulse.shortener_service.exception.LinkDisabledException;
 import com.linkpulse.shortener_service.exception.LinkExpiredException;
 import com.linkpulse.shortener_service.exception.LinkNotFoundException;
+import com.linkpulse.shortener_service.exception.RateLimitExceededException;
+import com.linkpulse.shortener_service.ratelimit.RateLimitResult;
+import com.linkpulse.shortener_service.ratelimit.RateLimiter;
 import com.linkpulse.shortener_service.repository.LinkRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,11 +47,33 @@ class LinkServiceTest {
     @Mock
     private LinkRepository linkRepository;
 
+    @Mock
+    private LinkCache linkCache;
+
+    @Mock
+    private RateLimiter rateLimiter;
+
     private LinkService linkService;
 
     @BeforeEach
     void setUp() {
-        linkService = new LinkService(linkRepository, BASE_URL);
+        // lenient: most tests don't care about the limiter, so an unused default stub must not fail them
+        lenient().when(rateLimiter.tryAcquire(anyString(), anyString(), anyInt(), any(Duration.class)))
+                .thenReturn(new RateLimitResult(true, 60));
+        linkService = new LinkService(linkRepository, linkCache, rateLimiter, BASE_URL, 10, 60);
+    }
+
+    @Test
+    void create_overRateLimit_throws429AndSavesNothing() {
+        when(rateLimiter.tryAcquire(eq("create"), eq("user:1"), eq(10), eq(Duration.ofSeconds(60))))
+                .thenReturn(new RateLimitResult(false, 42));
+
+        RateLimitExceededException ex = assertThrows(RateLimitExceededException.class,
+                () -> linkService.create(new CreateLinkRequest(LONG_URL, null, null), 1L));
+
+        assertEquals(42, ex.getRetryAfterSeconds());
+        verify(linkRepository, never()).save(any());
+        verify(linkRepository, never()).existsByCode(any());
     }
 
     // ---------- create ----------
@@ -166,9 +197,121 @@ class LinkServiceTest {
     }
 
     @Test
+    void resolve_cacheHit_doesNotQueryDatabase() {
+        when(linkCache.get("hot")).thenReturn(Optional.of(LONG_URL));
+
+        assertEquals(LONG_URL, linkService.resolve("hot"));
+
+        verify(linkRepository, never()).findByCode(any());
+    }
+
+    @Test
+    void resolve_cacheMiss_loadsFromDbAndCaches() {
+        Link link = new Link("cold", LONG_URL, 1L);
+        when(linkCache.get("cold")).thenReturn(Optional.empty());
+        when(linkRepository.findByCode("cold")).thenReturn(Optional.of(link));
+
+        assertEquals(LONG_URL, linkService.resolve("cold"));
+
+        verify(linkCache).put("cold", LONG_URL, null);
+    }
+
+    @Test
+    void resolve_disabledLink_isNotCached() {
+        Link link = new Link("off", LONG_URL, 1L);
+        link.disable();
+        when(linkCache.get("off")).thenReturn(Optional.empty());
+        when(linkRepository.findByCode("off")).thenReturn(Optional.of(link));
+
+        assertThrows(LinkDisabledException.class, () -> linkService.resolve("off"));
+
+        verify(linkCache, never()).put(any(), any(), any());
+    }
+
+    @Test
+    void resolve_unknownCode_cachesNotFound() {
+        when(linkCache.get("ghost")).thenReturn(Optional.empty());
+        when(linkRepository.findByCode("ghost")).thenReturn(Optional.empty());
+
+        assertThrows(LinkNotFoundException.class, () -> linkService.resolve("ghost"));
+
+        verify(linkCache).putNotFound("ghost");
+    }
+
+    @Test
+    void resolve_negativeCacheHit_doesNotQueryDatabase() {
+        when(linkCache.get("ghost")).thenReturn(Optional.of(LinkCache.NOT_FOUND));
+
+        assertThrows(LinkNotFoundException.class, () -> linkService.resolve("ghost"));
+
+        verify(linkRepository, never()).findByCode(any());
+    }
+
+    @Test
+    void resolve_invalidCodeFormat_neverTouchesCacheOrDatabase() {
+        assertThrows(LinkNotFoundException.class, () -> linkService.resolve("bad code!"));
+        assertThrows(LinkNotFoundException.class, () -> linkService.resolve("a".repeat(21)));
+
+        verify(linkCache, never()).get(any());
+        verify(linkRepository, never()).findByCode(any());
+    }
+
+    @Test
+    void create_withAlias_clearsNegativeCacheMarker() {
+        when(linkRepository.existsByCode("later01")).thenReturn(false);
+        when(linkRepository.save(any(Link.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        linkService.create(new CreateLinkRequest(LONG_URL, "later01", null), 1L);
+
+        verify(linkCache).evictAfterCommit("later01");
+    }
+
+    @Test
     void delete_unknownCode_throwsNotFound() {
         when(linkRepository.findByCode("nope")).thenReturn(Optional.empty());
 
         assertThrows(LinkNotFoundException.class, () -> linkService.delete("nope", 1L));
+    }
+
+    @Test
+    void delete_byOwner_evictsCache() {
+        Link link = new Link("mine", LONG_URL, 1L);
+        when(linkRepository.findByCode("mine")).thenReturn(Optional.of(link));
+
+        linkService.delete("mine", 1L);
+
+        verify(linkCache).evictAfterCommit("mine");
+    }
+
+    @Test
+    void adminDisable_evictsCache() {
+        Link link = new Link("on", LONG_URL, 1L);
+        when(linkRepository.findByCode("on")).thenReturn(Optional.of(link));
+
+        linkService.adminDisable("on");
+
+        verify(linkCache).evictAfterCommit("on");
+    }
+
+    @Test
+    void updateExpiry_byOwner_updatesAndEvicts() {
+        Link link = new Link("mine", LONG_URL, 1L);
+        LocalDateTime newExpiry = LocalDateTime.now().plusDays(2);
+        when(linkRepository.findByCode("mine")).thenReturn(Optional.of(link));
+
+        linkService.updateExpiry("mine", 1L, newExpiry);
+
+        assertEquals(newExpiry, link.getExpiresAt());
+        verify(linkCache).evictAfterCommit("mine");
+    }
+
+    @Test
+    void updateExpiry_byOtherUser_throwsForbidden() {
+        Link link = new Link("mine", LONG_URL, 1L);
+        when(linkRepository.findByCode("mine")).thenReturn(Optional.of(link));
+
+        assertThrows(LinkAccessDeniedException.class,
+                () -> linkService.updateExpiry("mine", 2L, LocalDateTime.now().plusDays(1)));
+        verify(linkCache, never()).evictAfterCommit(any());
     }
 }

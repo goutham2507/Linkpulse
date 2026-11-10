@@ -29,6 +29,8 @@ public class SecurityConfig {
                         // must come before anyRequest(): the first matching rule wins
                         // hasRole("ADMIN") checks authority "ROLE_ADMIN", which JwtAuthFilter grants
                         .requestMatchers("/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/actuator/health").permitAll()      // load balancers and probes carry no token
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")     // metrics reveal traffic patterns, so admin-only
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(new RestAccessDeniedHandler()))
