@@ -4,18 +4,19 @@ app:
     secret: ${JWT_SECRET:dev-only-secret-change-me-must-be-at-least-32-bytes}
     expiration-minutes: 60
   cache:
+    enabled: true
     link-ttl-seconds: 3600
     negative-ttl-seconds: 60
-  # low values for manual testing; production: create 10/60s, login 10/60s, register 5/3600s
+  # raised for k6 benchmarking (setup creates 10 links per run); production: create 10/60s, login 10/60s, register 5/3600s
   rate-limit:
     create-link:
-      limit: 2
+      limit: 1000
       window-seconds: 60
     login:
-      limit: 2
+      limit: 1000
       window-seconds: 60
     register:
-      limit: 2
+      limit: 1000
       window-seconds: 3600
 spring:
   application:

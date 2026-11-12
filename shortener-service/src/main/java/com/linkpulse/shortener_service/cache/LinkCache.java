@@ -28,13 +28,17 @@ public class LinkCache {
     private final Duration ttl;
     private final Duration negativeTtl;
     private final MeterRegistry registry;
+    private final boolean enabled;   // off switch so benchmarks can compare cache OFF vs ON
 
     public LinkCache(StringRedisTemplate redis,
                      MeterRegistry registry,
                      @Value("${app.cache.link-ttl-seconds}") long ttlSeconds,
-                     @Value("${app.cache.negative-ttl-seconds:60}") long negativeTtlSeconds) {
+                     @Value("${app.cache.negative-ttl-seconds:60}") long negativeTtlSeconds,
+                     @Value("${app.cache.enabled:true}") boolean enabled) {
         this.redis = redis;
         this.registry = registry;
+        this.enabled = enabled;
+        log.info("Link cache enabled={}", enabled);
         this.ttl = Duration.ofSeconds(ttlSeconds);
         this.negativeTtl = Duration.ofSeconds(negativeTtlSeconds);
         // a gauge because the ratio is derived on demand from the counters, not accumulated
@@ -56,6 +60,9 @@ public class LinkCache {
     }
 
     public Optional<String> get(String code) {
+        if (!enabled) {
+            return Optional.empty();
+        }
         try {
             String value = redis.opsForValue().get(PREFIX + code);
             String result = value == null ? "miss" : NOT_FOUND.equals(value) ? "negative_hit" : "hit";
@@ -70,6 +77,9 @@ public class LinkCache {
     }
 
     public void put(String code, String longUrl, LocalDateTime expiresAt) {
+        if (!enabled) {
+            return;
+        }
         try {
             Duration effective = ttlFor(expiresAt);
             if (effective.compareTo(Duration.ofSeconds(1)) < 0) {
@@ -82,6 +92,9 @@ public class LinkCache {
     }
 
     public void putNotFound(String code) {
+        if (!enabled) {
+            return;
+        }
         try {
             // short TTL bounds how long a wrongly-negative entry can linger if an eviction is missed
             redis.opsForValue().set(PREFIX + code, NOT_FOUND, negativeTtl);

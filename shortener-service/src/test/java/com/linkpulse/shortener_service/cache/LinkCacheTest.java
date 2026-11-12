@@ -38,7 +38,19 @@ class LinkCacheTest {
     void setUp() {
         when(redis.opsForValue()).thenReturn(valueOps);
         registry = new SimpleMeterRegistry();
-        cache = new LinkCache(redis, registry, 3600, 60);
+        cache = new LinkCache(redis, registry, 3600, 60, true);
+    }
+
+    @Test
+    void disabledCache_neverTouchesRedis() {
+        LinkCache disabled = new LinkCache(redis, new SimpleMeterRegistry(), 3600, 60, false);
+
+        assertTrue(disabled.get("a").isEmpty());
+        disabled.put("a", "https://example.com", null);
+        disabled.putNotFound("ghost");
+
+        verify(valueOps, never()).get(any());
+        verify(valueOps, never()).set(any(), any(), any(Duration.class));
     }
 
     @Test
