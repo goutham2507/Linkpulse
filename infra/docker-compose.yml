@@ -1,21 +1,97 @@
+name: linkpulse
+
 services:
+  shortener-db:
+    image: postgres:16
+    container_name: linkpulse-shortener-db
+    environment:
+      POSTGRES_DB: shortener
+      POSTGRES_USER: linkpulse
+      POSTGRES_PASSWORD: ${SHORTENER_DB_PASSWORD:-linkpulse}   # env var, dev default
+    ports:
+      - "5433:5432"
+    volumes:
+      - shortener-db-data:/var/lib/postgresql/data              # data survives restarts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linkpulse -d shortener"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  analytics-db:
+    image: postgres:16
+    container_name: linkpulse-analytics-db
+    environment:
+      POSTGRES_DB: analytics
+      POSTGRES_USER: linkpulse
+      POSTGRES_PASSWORD: ${ANALYTICS_DB_PASSWORD:-linkpulse}
+    ports:
+      - "5434:5432"
+    volumes:
+      - analytics-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linkpulse -d analytics"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: linkpulse-redis
+    # cache only: cap memory and evict least-recently-used keys when full
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   kafka:
     image: apache/kafka:4.0.0
     container_name: linkpulse-kafka
     ports:
       - "9092:9092"
     environment:
-      # single node that is both broker and controller (KRaft, no ZooKeeper)
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092   # address clients on your PC use
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
-      # only 1 broker, so internal topics can have just 1 copy
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG_DIRS: /var/lib/kafka/data                       # store messages on the volume
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # one-shot helper: waits for Kafka to be healthy, creates the topic, then exits
+  kafka-init:
+    image: apache/kafka:4.0.0
+    container_name: linkpulse-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092
+        --create --if-not-exists --topic click.events
+        --partitions 3 --replication-factor 1
+        && echo "click.events topic ready"
+    restart: "no"
+
+volumes:
+  shortener-db-data:
+  analytics-db-data:
+  kafka-data:
