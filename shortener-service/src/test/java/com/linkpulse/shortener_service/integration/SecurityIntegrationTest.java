@@ -44,7 +44,8 @@ import io.jsonwebtoken.security.Keys;
 @SpringBootTest(properties = {
                 "app.rate-limit.create-link.limit=10", "app.rate-limit.create-link.window-seconds=3600",
                 "app.rate-limit.login.limit=10", "app.rate-limit.login.window-seconds=3600",
-                "app.rate-limit.register.limit=5", "app.rate-limit.register.window-seconds=3600"})
+                "app.rate-limit.register.limit=5", "app.rate-limit.register.window-seconds=3600",
+                "app.click-events.enabled=false"})   // no Kafka broker in tests; redirects must not try to publish
 @AutoConfigureMockMvc
 class SecurityIntegrationTest {
 

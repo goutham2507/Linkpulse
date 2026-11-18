@@ -29,7 +29,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
         properties = {
                 "app.rate-limit.create-link.limit=10", "app.rate-limit.create-link.window-seconds=3600",
                 "app.rate-limit.login.limit=10", "app.rate-limit.login.window-seconds=3600",
-                "app.rate-limit.register.limit=100", "app.rate-limit.register.window-seconds=3600"})
+                "app.rate-limit.register.limit=100", "app.rate-limit.register.window-seconds=3600",
+                "app.click-events.enabled=false"})   // no Kafka broker in tests; redirects must not try to publish
 class LinkFlowIntegrationTest {
 
     private static final String LONG_URL = "https://example.com/products/shoes/nike/air-max?color=red";

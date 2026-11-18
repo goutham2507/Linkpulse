@@ -7,6 +7,9 @@ app:
     enabled: true
     link-ttl-seconds: 3600
     negative-ttl-seconds: 60
+  click-events:
+    enabled: true
+    topic: click.events
   # raised for k6 benchmarking (setup creates 10 links per run); production: create 10/60s, login 10/60s, register 5/3600s
   rate-limit:
     create-link:
@@ -34,6 +37,15 @@ spring:
       port: ${REDIS_PORT:6379}
       timeout: 500ms           # fail fast so a Redis outage can't stall redirects
       connect-timeout: 500ms
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      properties:
+        "[spring.json.add.type.headers]": false   # plain JSON, no Java class names in headers
+        "[max.block.ms]": 1000                    # if Kafka is down, give up after 1 s (default is 60 s!)
+
 management:
   endpoints:
     web:

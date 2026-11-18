@@ -16,8 +16,13 @@ class LinkRepositoryTest {
 
     @Test
     void saveAndFindByCode() {
+        // links.user_id has a foreign key, so create the owner here instead of assuming user 1 exists
+        Long userId = ((Number) entityManager.createNativeQuery(
+                "INSERT INTO users (email, password_hash) VALUES ('repo-test@example.com', 'x') RETURNING id")
+                .getSingleResult()).longValue();
+
         Link saved = linkRepository.save(
-                new Link("abc123", "https://example.com/some/long/url", 1L));
+                new Link("abc123", "https://example.com/some/long/url", userId));
 
         entityManager.flush();      // push the INSERT to the database
         entityManager.clear();      // forget cached objects, so the next read hits the DB
