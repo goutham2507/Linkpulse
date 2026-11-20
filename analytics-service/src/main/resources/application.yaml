@@ -1,0 +1,26 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: analytics-service
+  kafka:
+    # WHY: env override lets Docker/Compose point at the broker without code changes
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: analytics
+      # WHY: a new group should replay the topic from the start so no click events are missed
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # WHY: ErrorHandlingDeserializer stops one malformed record from blocking the partition forever
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        "[spring.deserializer.value.delegate.class]": org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+        # WHY: producer lives in another service, so don't rely on its class-name type headers
+        "[spring.json.value.default.type]": com.linkpulse.analytics_service.event.ClickEvent
+        "[spring.json.use.type.headers]": false
+        "[spring.json.trusted.packages]": com.linkpulse.analytics_service.event
+
+app:
+  click-events:
+    topic: click.events
