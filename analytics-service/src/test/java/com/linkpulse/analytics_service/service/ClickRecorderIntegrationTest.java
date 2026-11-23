@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.UUID;
 
 import com.linkpulse.analytics_service.event.ClickEvent;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,10 @@ class ClickRecorderIntegrationTest {
 
 	@Autowired
 	JdbcTemplate jdbc;
+
+	// WHY: the real registry proves the counter is actually wired, not just called on a mock
+	@Autowired
+	MeterRegistry registry;
 
 	// WHY: tests share one container, so start each from empty tables
 	@BeforeEach
@@ -73,6 +78,32 @@ class ClickRecorderIntegrationTest {
 		assertThatThrownBy(() -> recorder.record(badTime)).isInstanceOf(IllegalArgumentException.class);
 		// WHY: a rejected event must leave nothing behind
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM click_events", Long.class)).isZero();
+	}
+
+	@Test
+	void sameEventTwice_isCountedOnce() {
+		ClickEvent e = event("dup1", "2026-11-18T03:10:00Z");
+
+		recorder.record(e);
+		recorder.record(e); // WHY: simulates Kafka redelivering the same message
+
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM click_events WHERE code = 'dup1'", Long.class))
+				.isEqualTo(1L);
+		assertThat(jdbc.queryForObject(
+				"SELECT clicks FROM daily_link_stats WHERE code = 'dup1' AND day = DATE '2026-11-18'", Long.class))
+				.isEqualTo(1L);
+	}
+
+	@Test
+	void duplicateIncrementsMetric() {
+		ClickEvent e = event("dup2", "2026-11-18T03:10:00Z");
+		double before = registry.counter("linkpulse.analytics.duplicates").count();
+
+		recorder.record(e);
+		assertThat(registry.counter("linkpulse.analytics.duplicates").count()).isEqualTo(before);
+		recorder.record(e);
+
+		assertThat(registry.counter("linkpulse.analytics.duplicates").count()).isEqualTo(before + 1);
 	}
 
 	private static ClickEvent event(String code, String occurredAt) {

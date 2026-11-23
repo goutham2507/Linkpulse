@@ -43,6 +43,14 @@ All errors use one JSON format: `timestamp, status, error, message, path`.
 - **Unchecked custom exceptions + one @RestControllerAdvice:** keeps method signatures clean and gives a consistent error format.
 - **410 for expired links:** distinguishes "gone" from "never existed" (404).
 
+## Kafka partitioning
+- The `click.events` topic has **3 partitions**; the message key is the **short code**, so all clicks for one link go to the same partition and stay in order.
+- Consumers share the consumer group **`analytics`**: Kafka splits the partitions among all running analytics-service instances, so each message is handled by exactly one instance.
+- When an instance stops or starts, Kafka **rebalances** and reassigns its partitions to the remaining instances.
+- The **maximum useful number of consumers is 3** (the partition count); a 4th instance would sit idle.
+- Because a code always maps to one partition, only **one consumer at a time writes a given link's daily row**, which keeps per-link counting simple.
+- Delivery is at-least-once, so the consumer is idempotent: a repeated `eventId` is ignored (`ON CONFLICT DO NOTHING`) and counted in the `linkpulse.analytics.duplicates` metric.
+
 ## Known limitations (so far)
 - Single instance, single database.
 - No authentication yet (placeholder user id).
