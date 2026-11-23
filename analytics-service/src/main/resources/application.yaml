@@ -4,6 +4,18 @@ server:
 spring:
   application:
     name: analytics-service
+  datasource:
+    # WHY: env overrides let Docker/Compose point at its own Postgres without code changes
+    url: jdbc:postgresql://${ANALYTICS_DB_HOST:localhost}:${ANALYTICS_DB_PORT:5434}/analytics
+    username: ${ANALYTICS_DB_USER:linkpulse}
+    password: ${ANALYTICS_DB_PASSWORD:linkpulse}
+  flyway:
+    # WHY: with Boot 4.1.2 the default location found no scripts here, so name it explicitly
+    locations: classpath:db/migration
+  jpa:
+    hibernate:
+      # WHY: Flyway owns the schema; Hibernate only checks it matches
+      ddl-auto: validate
   kafka:
     # WHY: env override lets Docker/Compose point at the broker without code changes
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
@@ -24,3 +36,13 @@ spring:
 app:
   click-events:
     topic: click.events
+  stats:
+    # WHY: daily totals follow the India calendar day, not UTC, so late-evening clicks land on the user's date
+    zone: Asia/Kolkata
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # WHY: expose only health and metrics, nothing else (env, beans...)
+        include: health,metrics
