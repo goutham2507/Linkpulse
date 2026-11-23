@@ -88,7 +88,10 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092
         --create --if-not-exists --topic click.events
         --partitions 3 --replication-factor 1
-        && echo "click.events topic ready"
+        && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092
+        --create --if-not-exists --topic click.events.dlq
+        --partitions 3 --replication-factor 1
+        && echo "click.events and click.events.dlq topics ready"
     restart: "no"
 
 volumes:

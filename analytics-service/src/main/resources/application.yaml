@@ -36,6 +36,8 @@ spring:
 app:
   click-events:
     topic: click.events
+    # WHY: records that can't be processed are parked here instead of blocking or being lost
+    dlq-topic: click.events.dlq
   stats:
     # WHY: daily totals follow the India calendar day, not UTC, so late-evening clicks land on the user's date
     zone: Asia/Kolkata

@@ -51,6 +51,13 @@ All errors use one JSON format: `timestamp, status, error, message, path`.
 - Because a code always maps to one partition, only **one consumer at a time writes a given link's daily row**, which keeps per-link counting simple.
 - Delivery is at-least-once, so the consumer is idempotent: a repeated `eventId` is ignored (`ON CONFLICT DO NOTHING`) and counted in the `linkpulse.analytics.duplicates` metric.
 
+## Failure handling
+- **Transient errors** (e.g. a brief database outage) are retried with exponential backoff: 1s, 2s, 4s, then the record is given up on.
+- **Invalid data** (unparseable JSON, bad `eventId`/`occurredAt`, missing fields) is retried **never**; it goes straight to the dead-letter topic `click.events.dlq`.
+- Failed records keep their original bytes, partition number and error headers on the DLQ, so a bad message never blocks the partition and is never silently lost.
+- The `linkpulse.analytics.dlq` metric counts records sent to the DLQ; each one is also logged at WARN.
+- The DLQ can be inspected with `kafka-console-consumer.sh --topic click.events.dlq --from-beginning`, and a fixed message can be replayed by publishing it back to `click.events`.
+
 ## Known limitations (so far)
 - Single instance, single database.
 - No authentication yet (placeholder user id).
