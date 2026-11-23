@@ -8,8 +8,10 @@ export default function Navbar() {
       <span className="brand">LinkPulse</span>
       {token ? (
         <>
+          <NavLink to="/dashboard">Dashboard</NavLink>
           <NavLink to="/links">My Links</NavLink>
           {isAdmin && <NavLink to="/admin">Admin</NavLink>}
+          <NavLink to="/status">Status</NavLink>
           <span className="spacer" />
           <span className="nav-email">{email}</span>
           <button type="button" onClick={logout}>
@@ -18,6 +20,7 @@ export default function Navbar() {
         </>
       ) : (
         <>
+          <NavLink to="/status">Status</NavLink>
           <span className="spacer" />
           <NavLink to="/login">Login</NavLink>
           <NavLink to="/register">Register</NavLink>

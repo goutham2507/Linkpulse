@@ -36,6 +36,12 @@ public class LinkController {
         return linkService.listMine(user.id(), page, size);
     }
 
+    // owner-only lookup: analytics-service calls this with the user's token to prove ownership before showing stats
+    @GetMapping("/{code}")
+    public LinkSummary getMine(@PathVariable String code, @AuthenticationPrincipal AuthUser user) {
+        return linkService.getMine(code, user.id());
+    }
+
     @DeleteMapping("/{code}")
     public ResponseEntity<Void> delete(@PathVariable String code,
                                     @AuthenticationPrincipal AuthUser user) {

@@ -185,7 +185,29 @@ class SecurityIntegrationTest {
                 .andExpect(jsonPath("$.status").value(403));
     }
 
+    @Test
+    void getOtherUsersLink_returns403() throws Exception {
+        linkRepository.save(new Link("alice3", "https://example.com/c", alice.getId()));
+
+        mvc.perform(get("/v1/links/alice3").header("Authorization", "Bearer " + bobToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getLinkWithoutToken_returns401() throws Exception {
+        mvc.perform(get("/v1/links/alice3")).andExpect(status().isUnauthorized());
+    }
+
     // ---------- allowed ----------
+
+    @Test
+    void getOwnLink_returns200() throws Exception {
+        linkRepository.save(new Link("alice4", "https://example.com/d", alice.getId()));
+
+        mvc.perform(get("/v1/links/alice4").header("Authorization", "Bearer " + aliceToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("alice4"));
+    }
 
     @Test
     void createWithValidToken_returns201() throws Exception {

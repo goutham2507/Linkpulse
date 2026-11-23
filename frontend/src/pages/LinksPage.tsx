@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { Link } from "react-router";
 import { createLink, deleteLink, listMyLinks } from "../api/endpoints";
 import type { CreateLinkResponse, LinkSummary, PageResponse } from "../api/types";
 import ErrorBanner from "../components/ErrorBanner";
@@ -122,7 +123,8 @@ function LinksTable({ links, onDelete }: { links: LinkSummary[]; onDelete: (code
               <td>{l.createdAt}</td>
               <td>{l.expiresAt ?? "—"}</td>
               <td>{l.active ? "Yes" : "No"}</td>
-              <td>
+              <td className="row">
+                <Link to={`/links/${encodeURIComponent(l.code)}/stats`}>Stats</Link>
                 <button type="button" onClick={() => onDelete(l.code)}>
                   Delete
                 </button>

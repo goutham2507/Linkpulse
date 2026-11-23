@@ -18,9 +18,21 @@ BACKEND_URL=http://localhost:9090 npm run dev          # bash
 $env:BACKEND_URL = "http://localhost:9090"; npm run dev # PowerShell
 ```
 
-Start the backend first (`shortener-service`). To get an admin account, change a user's role to `ADMIN` in the database, then log in again.
+Analytics lives in a second service (`analytics-service`, default `http://localhost:8081`). Override it with `ANALYTICS_URL`, the same way as `BACKEND_URL`.
 
-Frontend routes: `/login`, `/register`, `/links`, `/admin`. They deliberately avoid the `/auth` and `/v1` prefixes, which belong to the API proxy.
+Start the backends first (`shortener-service`, and `analytics-service` for the Dashboard and Stats pages). To get an admin account, change a user's role to `ADMIN` in the database, then log in again.
+
+Frontend routes: `/login`, `/register`, `/dashboard`, `/links`, `/links/:code/stats`, `/status`, `/admin`. They deliberately avoid the `/auth` and `/v1` prefixes, which belong to the API proxy.
+
+| Page | What it shows | API |
+|---|---|---|
+| Dashboard | Total links and clicks, clicks-per-day chart, top 5 links (7/30/90 days) | `GET /v1/stats/summary` |
+| Link stats | Clicks per day for one of your links | `GET /v1/stats/{code}` |
+| Status (public) | UP/DOWN of both services, refreshed every 10 s | `/svc-health/*` (proxy to each `/actuator/health`) |
+
+Proxy routing: `/v1/stats/*` goes to analytics, the rest of `/v1/*` and `/auth/*` go to the shortener (order matters in `vite.config.ts`). When Nginx arrives, it must make the same split. Days are in the stats zone (Asia/Kolkata), as sent by the API.
+
+Stats are owner-only: analytics-service forwards your token to the shortener, which validates it and confirms you own the link. Other people's codes answer 404, never 403, so codes can't be probed.
 
 Short links (`/{code}`) are served by the backend, not this app. The `shortUrl` returned by the API is used as-is.
 

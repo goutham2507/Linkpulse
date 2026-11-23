@@ -58,3 +58,34 @@ export interface PageResponse<T> {
   totalElements: number;
   totalPages: number;
 }
+
+// Analytics (analytics-service). Dates are plain "YYYY-MM-DD" in the stats zone (Asia/Kolkata).
+export interface DayCount {
+  day: string;
+  clicks: number;
+}
+
+export interface LinkStats {
+  code: string;
+  from: string;
+  to: string;
+  totalClicks: number;
+  daily: DayCount[];
+}
+
+export interface TopLink {
+  code: string;
+  clicks: number;
+}
+
+export interface StatsSummary {
+  from: string;
+  to: string;
+  totalLinks: number;
+  totalClicks: number;
+  daily: DayCount[];
+  topLinks: TopLink[];
+}
+
+export type ServiceName = "shortener" | "analytics";
+export type ServiceState = "UP" | "DOWN" | "UNREACHABLE";

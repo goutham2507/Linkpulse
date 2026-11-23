@@ -4,10 +4,14 @@ import type {
   CreateLinkResponse,
   LinkSummary,
   LoginRequest,
+  LinkStats,
   LoginResponse,
   PageResponse,
   RegisterRequest,
   RegisterResponse,
+  ServiceName,
+  ServiceState,
+  StatsSummary,
 } from "./types";
 
 export function register(req: RegisterRequest): Promise<RegisterResponse> {
@@ -36,4 +40,25 @@ export function disableLink(code: string): Promise<void> {
 
 export function enableLink(code: string): Promise<void> {
   return request(`/v1/admin/links/${encodeURIComponent(code)}/enable`, { method: "PATCH" });
+}
+
+export function getLinkStats(code: string, days: number): Promise<LinkStats> {
+  return request(`/v1/stats/${encodeURIComponent(code)}?days=${days}`);
+}
+
+export function getStatsSummary(days: number): Promise<StatsSummary> {
+  return request(`/v1/stats/summary?days=${days}`);
+}
+
+// Public probe of a service's actuator health. Never throws: a dead service is a normal answer here.
+export async function getServiceHealth(service: ServiceName): Promise<ServiceState> {
+  try {
+    const res = await fetch(`/svc-health/${service}`);
+    const body = (await res.json()) as { status?: string };
+    if (body.status === "UP") return "UP";
+    return body.status === "DOWN" ? "DOWN" : "UNREACHABLE";
+  } catch {
+    // network error, or the proxy answered with a non-JSON error page
+    return "UNREACHABLE";
+  }
 }

@@ -38,6 +38,9 @@ app:
     topic: click.events
     # WHY: records that can't be processed are parked here instead of blocking or being lost
     dlq-topic: click.events.dlq
+  shortener:
+    # WHY: stats are owner-only, and the shortener is the authority on tokens and link ownership
+    base-url: ${SHORTENER_BASE_URL:http://localhost:8080}
   stats:
     # WHY: daily totals follow the India calendar day, not UTC, so late-evening clicks land on the user's date
     zone: Asia/Kolkata

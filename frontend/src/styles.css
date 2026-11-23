@@ -69,3 +69,31 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 table { width: 100%; border-collapse: collapse; background: var(--card); }
 th, td { padding: 0.5rem; border-bottom: 1px solid var(--border); text-align: left; font-size: 0.9rem; }
 .cell-long { max-width: 260px; overflow-wrap: anywhere; }
+
+.muted { color: var(--muted); }
+
+button.secondary { background: var(--card); color: var(--accent); }
+.days-picker { margin-bottom: 1rem; }
+
+.cards { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; }
+.card {
+  flex: 1 1 180px;
+  padding: 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.card-value { font-size: 1.6rem; font-weight: 700; }
+.card-label { color: var(--muted); font-size: 0.9rem; }
+
+.badge { display: inline-block; margin-top: 0.4rem; padding: 0.15rem 0.6rem; border-radius: 999px; font-weight: 600; }
+.badge-up { background: var(--ok-bg); color: var(--ok-fg); }
+.badge-down, .badge-unreachable { background: var(--error-bg); color: var(--error-fg); }
+.badge-checking { background: var(--border); color: var(--muted); }
+
+/* Chart colours live here because the CSP forbids inline style attributes */
+.chart { width: 100%; height: auto; background: var(--card); border: 1px solid var(--border); border-radius: 6px; }
+.chart-bar { fill: var(--accent); }
+.chart-bar:hover { opacity: 0.75; }
+.chart-axis { stroke: var(--border); stroke-width: 1; }
+.chart-label { fill: var(--muted); font-size: 11px; }

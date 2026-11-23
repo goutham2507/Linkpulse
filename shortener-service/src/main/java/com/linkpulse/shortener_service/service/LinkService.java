@@ -153,6 +153,16 @@ public class LinkService {
         return PageResponse.from(result);
     }
 
+    @Transactional(readOnly = true)
+    public LinkSummary getMine(String code, Long userId) {
+        Link link = linkRepository.findByCode(code)
+                .orElseThrow(() -> new LinkNotFoundException(code));       // 404
+        if (!link.getUserId().equals(userId)) {
+            throw new LinkAccessDeniedException(code);                     // 403
+        }
+        return toSummary(link);
+    }
+
     private LinkSummary toSummary(Link link) {
         return new LinkSummary(
                 link.getCode(),
